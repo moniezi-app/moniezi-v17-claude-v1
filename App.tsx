@@ -895,11 +895,15 @@ export default function App() {
   }, [currentPage]);
 
   // Scroll-to-top button visibility - show after 65% scroll of page
+  // NOTE: The app scrolls inside mainScrollRef (not the window), so we listen there.
   useEffect(() => {
+    const el = mainScrollRef.current;
+    if (!el) return;
+
     const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const scrollHeight = document.documentElement.scrollHeight;
-      const clientHeight = document.documentElement.clientHeight;
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight;
+      const clientHeight = el.clientHeight;
       const scrollableHeight = scrollHeight - clientHeight;
       
       // Calculate scroll percentage (0 to 1)
@@ -909,19 +913,24 @@ export default function App() {
       setShowScrollToTop(scrollPercent > 0.65);
     };
     
-    // Add scroll listener to window
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Add scroll listener to the internal scroll container
+    el.addEventListener('scroll', handleScroll, { passive: true });
     
     // Initialize state
     handleScroll();
     
     // Cleanup
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      el.removeEventListener('scroll', handleScroll);
     };
   }, [currentPage]); // Re-check when page changes as content length varies
 
   const scrollToTop = () => {
+    const el = mainScrollRef.current;
+    if (el) {
+      el.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    // Also reset window scroll as fallback
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
