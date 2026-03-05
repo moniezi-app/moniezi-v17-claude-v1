@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import html2pdf from 'html2pdf.js';
 import { 
   TrendingUp, 
@@ -8898,8 +8899,8 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       </div>
 
-      {/* Scroll to Top Button - Theme Aware */}
-      {showScrollToTop && (
+      {/* Scroll to Top Button - rendered via Portal to escape overflow-hidden container */}
+      {showScrollToTop && createPortal(
         <button
           onClick={scrollToTop}
           className="no-print fixed right-4 z-[54] w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 animate-in fade-in zoom-in-75 duration-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-900/10 dark:shadow-black/30 hover:shadow-xl hover:scale-105"
@@ -8909,7 +8910,8 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
           aria-label="Scroll to top"
         >
           <ArrowUp size={22} strokeWidth={2.5} className="text-slate-600 dark:text-slate-300" />
-        </button>
+        </button>,
+        document.body
       )}
 
 
