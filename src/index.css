@@ -7,3 +7,13 @@
 html, body {
   height: 100%;
 }
+
+/* iOS safe-area fallback for older WebKit (constant() was the pre-standard name) */
+@supports (padding-top: constant(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: max(16px, constant(safe-area-inset-top));
+  }
+  .safe-area-bottom {
+    padding-bottom: max(16px, constant(safe-area-inset-bottom));
+  }
+}

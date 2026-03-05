@@ -5190,7 +5190,13 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* View Receipt Full Screen Modal */}
       {viewingReceipt && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-sm px-4 pb-4 animate-in fade-in duration-200 safe-area-top safe-area-bottom"
+          style={{
+            paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+          }}
+        >
             <div className="w-full max-w-lg h-full flex flex-col">
                 <div className="flex items-center justify-between mb-4 text-white">
                     <div className="flex items-center gap-3">
