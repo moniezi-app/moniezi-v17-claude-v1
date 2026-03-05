@@ -556,16 +556,16 @@ const DateInput = ({ label, value, onChange }: { label: string, value: string, o
 const Drawer: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md p-0 sm:p-4 transition-all">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md p-0 sm:p-4 transition-all modal-overlay">
       <div className="fixed inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-xl sm:rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] animate-in slide-in-from-bottom duration-300">
+      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-xl sm:rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] animate-in slide-in-from-bottom duration-300" style={{ maxWidth: '100%' }}>
         <div className="flex items-center justify-between p-8 pb-4">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="p-2 bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-colors">
             <X size={28} strokeWidth={1.5} />
           </button>
         </div>
-        <div className="px-8 pb-8 overflow-y-auto custom-scrollbar">
+        <div className="px-8 pb-8 modal-scroll-area custom-scrollbar">
           {children}
         </div>
       </div>
@@ -1625,6 +1625,65 @@ export default function App() {
 
   const removeToast = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
 
+  // --- iOS body scroll lock: prevents background scroll & horizontal drift when modals are open ---
+  const scrollLockCountRef = useRef(0);
+
+  const lockBodyScroll = useCallback(() => {
+    scrollLockCountRef.current += 1;
+    if (scrollLockCountRef.current === 1) {
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      document.body.style.setProperty('--scroll-top', `-${scrollY}px`);
+      document.body.classList.add('modal-open');
+    }
+  }, []);
+
+  const unlockBodyScroll = useCallback(() => {
+    scrollLockCountRef.current = Math.max(0, scrollLockCountRef.current - 1);
+    if (scrollLockCountRef.current === 0) {
+      const scrollY = Math.abs(parseInt(document.body.style.getPropertyValue('--scroll-top') || '0', 10));
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('--scroll-top');
+      window.scrollTo(0, scrollY);
+    }
+  }, []);
+
+
+  // Lock body scroll when Drawer / Receipt View / PDF preview modals are open
+  useEffect(() => {
+    if (isDrawerOpen) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [isDrawerOpen, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (viewingReceipt) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [viewingReceipt, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (isPdfPreviewOpen) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [isPdfPreviewOpen, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (isEstimatePdfPreviewOpen) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [isEstimatePdfPreviewOpen, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (showPLPreview || showProPLPreview) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [showPLPreview, showProPLPreview, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (showHelpModal) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [showHelpModal, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (scanPreview) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [scanPreview, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (isClientModalOpen) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [isClientModalOpen, lockBodyScroll, unlockBodyScroll]);
+
+  useEffect(() => {
+    if (showInsights) { lockBodyScroll(); return () => { unlockBodyScroll(); }; }
+  }, [showInsights, lockBodyScroll, unlockBodyScroll]);
 
   const findMatchingClientId = useCallback((data: Partial<Invoice> & Partial<Estimate>) => {
     const email = normalize((data as any).clientEmail || '');
@@ -5171,7 +5230,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* Scan Receipt Confirm Modal */}
       {scanPreview && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
             <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-4 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><Receipt size={20} />Save Receipt?</h3>
@@ -5191,7 +5250,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
       {/* View Receipt Full Screen Modal */}
       {viewingReceipt && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-sm px-4 pb-4 animate-in fade-in duration-200 safe-area-top safe-area-bottom"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-sm px-4 pb-4 animate-in fade-in duration-200 safe-area-top safe-area-bottom modal-overlay"
           style={{
             paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
             paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
@@ -5222,7 +5281,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
       )}
 
       {isPdfPreviewOpen && selectedInvoiceForDoc && (
-        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 modal-overlay">
             <div className="relative w-full max-w-[800px] bg-white text-slate-900 shadow-2xl overflow-y-auto max-h-[90vh] rounded-lg">
                 {/* Preview Header with Actions */}
                 <div className="sticky top-0 left-0 right-0 bg-white border-b border-gray-200 px-3 sm:px-4 pb-3 sm:pb-4 pt-[calc(0.75rem+env(safe-area-inset-top))] flex justify-between items-center z-50">
@@ -5367,7 +5426,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
       )}
 
       {isEstimatePdfPreviewOpen && selectedEstimateForDoc && (
-        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 modal-overlay">
             <div className="relative w-full max-w-[800px] bg-white text-slate-900 shadow-2xl overflow-y-auto max-h-[90vh] rounded-lg">
                 {/* Preview Header with Actions */}
                 <div className="sticky top-0 left-0 right-0 bg-white border-b border-gray-200 px-3 sm:px-4 pb-3 sm:pb-4 pt-[calc(0.75rem+env(safe-area-inset-top))] flex justify-between items-center z-50">
@@ -5592,7 +5651,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
 
       {showResetConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
             <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-red-500/20">
                 <div className="flex items-center gap-4 mb-4 text-red-600 dark:text-red-500">
                    <div className="bg-red-100 dark:bg-red-500/10 p-3 rounded-full"><AlertTriangle size={24} strokeWidth={2} /></div>
@@ -5609,7 +5668,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* NEW: Delete Invoice Confirmation Modal */}
       {invoiceToDelete && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
             <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-3 mb-4 text-slate-900 dark:text-white">
                     <div className="bg-red-100 dark:bg-red-500/10 p-3 rounded-full text-red-600 dark:text-red-500">
@@ -5628,7 +5687,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* NEW: Restore Backup Confirmation Modal */}
       {showRestoreModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
             <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-xl p-6 shadow-2xl border border-blue-500/20">
                 <div className="flex items-center gap-4 mb-4 text-blue-600 dark:text-blue-400">
                     <div className="bg-blue-100 dark:bg-blue-500/10 p-3 rounded-full"><RotateCcw size={24} strokeWidth={2} /></div>
@@ -7463,7 +7522,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
               {/* P&L Preview Modal */}
               {showPLPreview && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-stretch justify-stretch p-0">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-stretch justify-stretch p-0 modal-overlay">
                   <div className="bg-white dark:bg-slate-900 rounded-none w-full h-full overflow-hidden flex flex-col">
                     {/* Modal Header */}
                     <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
@@ -7793,7 +7852,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
         {/* Pro P&L Preview Modal - OUTSIDE Reports conditional for proper rendering */}
         {showProPLPreview && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-stretch justify-stretch p-0">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-stretch justify-stretch p-0 modal-overlay">
             <div className="bg-gray-100 w-full h-full overflow-hidden flex flex-col">
               {/* Modal Header */}
               <div className="flex items-center justify-between px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:p-4 border-b border-gray-300 bg-white flex-shrink-0">
@@ -8847,7 +8906,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* Help Modal */}
       {showHelpModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-stretch justify-stretch p-0">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-stretch justify-stretch p-0 modal-overlay">
           <div className="bg-white dark:bg-slate-900 rounded-none w-full h-full overflow-hidden flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
@@ -9031,7 +9090,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* Insights Modal */}
       {showInsights && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
             <InsightsDashboard
               transactions={transactions}
@@ -9371,7 +9430,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
       {/* Client Modal */}
       {isClientModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -9491,7 +9550,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
 
 {/* Template Suggestion Modal */}
       {showTemplateSuggestion && templateSuggestionData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 modal-overlay">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-2xl border border-blue-500/20">
             <div className="flex items-center gap-4 mb-4 text-blue-600 dark:text-blue-400">
               <div className="bg-blue-100 dark:bg-blue-500/10 p-3 rounded-full">
@@ -9537,7 +9596,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
       
       {/* Phase 3: Batch Duplicate Modal */}
       {showBatchDuplicateModal && batchDuplicateData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto modal-overlay">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl border border-purple-500/20 my-auto">
             <div className="flex items-center gap-4 mb-4 text-purple-600 dark:text-purple-400">
               <div className="bg-purple-100 dark:bg-purple-500/10 p-3 rounded-full">
@@ -9612,7 +9671,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
       
       {/* Phase 3: Recurring Transaction Modal */}
       {showRecurringModal && recurringData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto modal-overlay">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-2xl border border-emerald-500/20 my-auto">
             <div className="flex items-center gap-4 mb-4 text-emerald-600 dark:text-emerald-400">
               <div className="bg-emerald-100 dark:bg-emerald-500/10 p-3 rounded-full">
