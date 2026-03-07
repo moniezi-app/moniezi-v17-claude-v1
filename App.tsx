@@ -895,43 +895,41 @@ export default function App() {
     setTimeout(toTop, 0);
   }, [currentPage]);
 
-  // Scroll-to-top button visibility - show after 65% scroll of page
-  // NOTE: The app scrolls inside mainScrollRef (not the window), so we listen there.
+  // Scroll-to-top button visibility
+  // Listen on BOTH the internal scroll container AND window (belt-and-suspenders).
   useEffect(() => {
     const el = mainScrollRef.current;
-    if (!el) return;
 
-    const handleScroll = () => {
-      const scrollTop = el.scrollTop;
-      const scrollHeight = el.scrollHeight;
-      const clientHeight = el.clientHeight;
-      const scrollableHeight = scrollHeight - clientHeight;
-      
-      // Calculate scroll percentage (0 to 1)
-      const scrollPercent = scrollableHeight > 0 ? scrollTop / scrollableHeight : 0;
-      
-      // Show button after scrolling 65% of the page
-      setShowScrollToTop(scrollPercent > 0.65);
+    const check = () => {
+      // Check the internal scroll container first
+      if (el) {
+        const scrollTop = el.scrollTop;
+        if (scrollTop > 300) {
+          setShowScrollToTop(true);
+          return;
+        }
+      }
+      // Also check window scroll (fallback for any layout)
+      if ((window.scrollY || window.pageYOffset || 0) > 300) {
+        setShowScrollToTop(true);
+        return;
+      }
+      setShowScrollToTop(false);
     };
-    
-    // Add scroll listener to the internal scroll container
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Initialize state
-    handleScroll();
-    
-    // Cleanup
+
+    if (el) el.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('scroll', check, { passive: true });
+    check();
+
     return () => {
-      el.removeEventListener('scroll', handleScroll);
+      if (el) el.removeEventListener('scroll', check);
+      window.removeEventListener('scroll', check);
     };
-  }, [currentPage]); // Re-check when page changes as content length varies
+  }, [currentPage, dataLoaded]); // Re-attach when page changes or data loads (ref becomes available)
 
   const scrollToTop = () => {
     const el = mainScrollRef.current;
-    if (el) {
-      el.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    // Also reset window scroll as fallback
+    if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
@@ -5236,7 +5234,7 @@ html:not(.dark) .shadow { box-shadow: 0 1px 3px rgba(2, 6, 23, 0.14), 0 1px 2px 
 /* Slightly stronger separators */
 html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(203 213 225) !important; }
 `}</style>
-      <div className="min-h-screen flex flex-col max-w-2xl mx-auto relative bg-slatebg dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden transition-colors duration-300">
+      <div className="h-screen max-h-screen flex flex-col max-w-2xl mx-auto relative bg-slatebg dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden transition-colors duration-300">
 
       {/* Scan Receipt Confirm Modal */}
       {scanPreview && (
@@ -5737,7 +5735,7 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
         </div>
       </header>
 
-      <div ref={mainScrollRef} className="flex-1 overflow-y-auto pb-44 px-6 md:px-8 no-print custom-scrollbar" role="main">
+      <div ref={mainScrollRef} className="flex-1 min-h-0 overflow-y-auto pb-44 px-6 md:px-8 no-print custom-scrollbar" role="main">
 
       <PageErrorBoundary key={currentPage} onReset={() => setCurrentPage(Page.Dashboard)}>
 
@@ -8903,9 +8901,13 @@ html:not(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-col
       {showScrollToTop && createPortal(
         <button
           onClick={scrollToTop}
-          className="no-print fixed right-4 z-[54] w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 animate-in fade-in zoom-in-75 duration-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-900/10 dark:shadow-black/30 hover:shadow-xl hover:scale-105"
+          className="no-print w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-900/10 dark:shadow-black/30 hover:shadow-xl hover:scale-105"
           style={{
+            position: 'fixed',
+            right: '16px',
             bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px) + 20px)',
+            zIndex: 99998,
+            pointerEvents: 'auto',
           }}
           aria-label="Scroll to top"
         >
